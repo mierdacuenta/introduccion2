@@ -1,0 +1,61 @@
+# Pipeline de Integración Continua (CI)
+# Este workflow se ejecuta automáticamente para validar el código mediante tests
+
+name: CI Pipeline
+
+# TRIGGER: Cuándo se ejecuta este workflow
+on:
+  push:
+    branches: [ main, develop ]  # Se ejecuta al hacer push a main o develop
+  pull_request:
+    branches: [ main ]  # Se ejecuta al crear/actualizar un PR hacia main
+
+jobs:
+  test:
+    name: Run tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest  # Usa un runner con Ubuntu
+
+    # MATRIZ DE VERSIONES: Ejecuta los tests en múltiples versiones de Node.js en paralelo
+    # Esto garantiza compatibilidad con Node 16, 18 y 20
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x]
+
+    steps:
+      # PASO 1: Descargar el código del repositorio
+      # Clona el código fuente para poder trabajar con él
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # PASO 2: Configurar el entorno de Node.js
+      # Instala la versión específica de Node.js definida en la matriz
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # PASO 3: Instalar las dependencias del proyecto
+      # Ejecuta npm install para descargar todas las librerías necesarias (jest, etc.)
+      - name: Install dependencies
+        run: npm install
+
+      # PASO 4: Ejecutar los tests unitarios
+      # Corre Jest para verificar que todo el código funciona correctamente
+      - name: Run tests
+        run: npm test
+
+      # PASO 5: Generar reporte de cobertura de código
+      # Ejecuta los tests con coverage para saber qué % del código está testeado
+      - name: Generate coverage report
+        run: npm run test:coverage
+
+      # PASO 6: Subir reporte de cobertura a Codecov
+      # Solo se ejecuta en Node 18.x para evitar duplicados
+      # Codecov analiza qué partes del código NO tienen tests
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == '18.x'
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info  # Archivo de cobertura generado por Jest
+          flags: unittests
+          name: codecov-umbrella
